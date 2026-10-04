@@ -70,11 +70,7 @@ For $a<b<c$, a triangular set is:
 
 $$
 \mu_{\triangle}(x;a,b,c)=
-\begin{cases}
-0, & x\leq a \text{ or } x\geq c,\\
-\dfrac{x-a}{b-a}, & a<x<b,\\
-\dfrac{c-x}{c-b}, & b\leq x<c.
-\end{cases}
+\max\left(0,\min\left(\frac{x-a}{b-a},\frac{c-x}{c-b}\right)\right).
 $$
 
 ### Shoulder memberships
@@ -83,22 +79,14 @@ The left shoulder (high membership at small values) is:
 
 $$
 \mu_{\mathrm{left}}(x;a,b)=
-\begin{cases}
-1, & x\leq a,\\
-\dfrac{b-x}{b-a}, & a<x<b,\\
-0, & x\geq b.
-\end{cases}
+\max\left(0,\min\left(1,\frac{b-x}{b-a}\right)\right).
 $$
 
 The right shoulder (high membership at large values) is:
 
 $$
 \mu_{\mathrm{right}}(x;a,b)=
-\begin{cases}
-0, & x\leq a,\\
-\dfrac{x-a}{b-a}, & a<x<b,\\
-1, & x\geq b.
-\end{cases}
+\max\left(0,\min\left(1,\frac{x-a}{b-a}\right)\right).
 $$
 
 The implementation uses these breakpoints:
@@ -195,15 +183,15 @@ The eight rule consequents in the code are:
 | 7 | Workload heavy, distance far | 0.20 | 0.10 | -0.15 | -0.05 | -0.20 | 0.10 |
 | 8 | Urgency high, battery medium, distance medium | 0.55 | 0.15 | -0.10 | -0.05 | -0.05 | 0.20 |
 
-The fuzzy score is the weighted average of the consequents that fired:
+When at least one rule fires, the fuzzy score is the weighted average of its consequents:
 
 $$
 S^{\mathrm{fuzzy}}_{ij}=
-\begin{cases}
-\dfrac{\sum_r \alpha_r z_r}{\sum_r \alpha_r}, & \sum_r\alpha_r>0,\\
-0, & \text{no rule fires}.
-\end{cases}
+\frac{\sum_r \alpha_r z_r}{\sum_r \alpha_r},
+\qquad \sum_r \alpha_r>0.
 $$
+
+If no rule fires ($\sum_r\alpha_r=0$), the implementation returns a fuzzy score of $0$.
 
 This is Sugeno-style inference: numerical rule consequents are averaged. It is not Mamdani centroid defuzzification. The rules and coefficients are designed by hand; there is no learned training model yet.
 
