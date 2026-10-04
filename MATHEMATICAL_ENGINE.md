@@ -7,6 +7,8 @@ This guide connects the equations to the implementation and MuJoCo demo. It is d
 ## Contents
 
 - [Watch the MuJoCo simulation](#watch-the-mujoco-simulation)
+- [Add a task in the web dashboard](#add-a-task-in-the-web-dashboard)
+- [MuJoCo vs. the web dashboard](#mujoco-vs-the-web-dashboard)
 - [1. Inputs and feasibility](#1-inputs-and-feasibility)
 - [2. Membership functions](#2-membership-functions)
 - [3. Fuzzy inference](#3-fuzzy-inference-sugeno)
@@ -27,6 +29,42 @@ This is an animation rendered from the project's MuJoCo model and physics, not a
 [Regenerate the GIF](#regenerate-the-mujoco-animation)
 
 The cyan pad is the charging station; gold and green markers are open and completed jobs. The viewer also shows live robot/task labels.
+
+## Add a task in the web dashboard
+
+The browser dashboard is an optional, local companion for entering jobs and watching the simplified warehouse view. Start it from the repository root:
+
+```bash
+.venv/bin/python simulator.py
+```
+
+Open [http://localhost:8000](http://localhost:8000). The screenshot shows the map, robot status, task queue, and complete task-entry form:
+
+![Web warehouse dashboard and task-entry form](./docs/assets/web-dashboard-task-entry.png)
+
+To submit a task:
+
+1. Click a location on the warehouse map to fill in **X** and **Y**, or type the coordinates directly. Both coordinates are in metres and must be between 0 and 10.
+2. Enter a short task description, such as `Deliver medicine to the north shelf`.
+3. Enter the payload in kilograms. It must be positive and must fit at least one robot's capacity to be assignable.
+4. Set urgency from 0 to 100.
+5. Select **Add to task queue**. The page confirms the new task ID and updates the task queue and robot assignments. The robots select feasible work automatically.
+
+Use **Reset simulation** to restore the starter scenario. The browser server is intended for local development and has no authentication; do not expose it directly to the public internet.
+
+## MuJoCo vs. the web dashboard
+
+Both views use the project's task-allocation and battery policy, but they serve different purposes:
+
+| | MuJoCo (primary) | Web dashboard (optional companion) |
+|---|---|---|
+| What it is | A 3D MuJoCo physics simulation | A lightweight 2D canvas visualization and task-entry page |
+| Robot movement | Motorized differential-drive bodies move through MuJoCo physics under wheel control | Robots move in the browser prototype's simplified state simulation; this is not MuJoCo physics |
+| Best for | Seeing the actual simulated robot model, wheel-driven movement, and charging dock | Quickly creating tasks, choosing map coordinates, and inspecting status in a browser |
+| Add a task | Type `task <x> <y> [payload] [urgency] [description...]` in the MuJoCo terminal | Fill out the form, or click the map to set the coordinates, then select **Add to task queue** |
+| Launch | `.venv/bin/mjpython mujoco_sim.py` on macOS | `.venv/bin/python simulator.py`, then open `http://localhost:8000` |
+
+The browser view is not a remote MuJoCo renderer and does not replace the 3D simulation. Use MuJoCo when the goal is to experiment with physical robot motion; use the browser when the goal is to enter tasks and inspect the simplified dashboard.
 
 ## 1. Inputs and feasibility
 
@@ -359,4 +397,6 @@ The script writes `docs/assets/mujoco-warehouse-demo.gif` and `docs/assets/mujoc
 - [ ] Expand both worked examples and check their arithmetic.
 - [ ] Watch the GIF and identify a task marker and the charger.
 - [ ] Add one task in MuJoCo and check the robot's chosen destination.
+- [ ] Add one task in the browser dashboard using the screenshot as a guide.
+- [ ] Explain which parts of the browser demo are simplified compared with MuJoCo.
 - [ ] Explain why the selected matching has a higher total score than a greedy choice.

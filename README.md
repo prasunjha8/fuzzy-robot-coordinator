@@ -53,6 +53,8 @@ The dashboard is an additional, lightweight visualization and task-entry surface
 
 Open http://localhost:8000. Enter the job description, coordinates, payload, and urgency, or click the warehouse map to select its coordinates before submitting.
 
+See the [web task-entry walkthrough and dashboard screenshot](./MATHEMATICAL_ENGINE.md#add-a-task-in-the-web-dashboard) for step-by-step instructions and how this companion differs from MuJoCo.
+
 This companion server is for local development and has no authentication; do not expose it directly to the public internet.
 
 ## Decision engine
