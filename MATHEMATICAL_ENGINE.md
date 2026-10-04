@@ -71,8 +71,8 @@ For $a<b<c$, a triangular set is:
 $$
 \mu_{\triangle}(x;a,b,c)=
 \begin{cases}
-0, & x\leq a \text{ or } x\geq c,\\[2pt]
-\dfrac{x-a}{b-a}, & a<x<b,\\[6pt]
+0, & x\leq a \text{ or } x\geq c,\\
+\dfrac{x-a}{b-a}, & a<x<b,\\
 \dfrac{c-x}{c-b}, & b\leq x<c.
 \end{cases}
 $$
@@ -84,8 +84,8 @@ The left shoulder (high membership at small values) is:
 $$
 \mu_{\mathrm{left}}(x;a,b)=
 \begin{cases}
-1, & x\leq a,\\[2pt]
-\dfrac{b-x}{b-a}, & a<x<b,\\[6pt]
+1, & x\leq a,\\
+\dfrac{b-x}{b-a}, & a<x<b,\\
 0, & x\geq b.
 \end{cases}
 $$
@@ -95,8 +95,8 @@ The right shoulder (high membership at large values) is:
 $$
 \mu_{\mathrm{right}}(x;a,b)=
 \begin{cases}
-0, & x\leq a,\\[2pt]
-\dfrac{x-a}{b-a}, & a<x<b,\\[6pt]
+0, & x\leq a,\\
+\dfrac{x-a}{b-a}, & a<x<b,\\
 1, & x\geq b.
 \end{cases}
 $$
@@ -200,7 +200,7 @@ The fuzzy score is the weighted average of the consequents that fired:
 $$
 S^{\mathrm{fuzzy}}_{ij}=
 \begin{cases}
-\dfrac{\sum_r \alpha_r z_r}{\sum_r \alpha_r}, & \sum_r\alpha_r>0,\\[8pt]
+\dfrac{\sum_r \alpha_r z_r}{\sum_r \alpha_r}, & \sum_r\alpha_r>0,\\
 0, & \text{no rule fires}.
 \end{cases}
 $$
