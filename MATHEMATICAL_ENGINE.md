@@ -279,11 +279,11 @@ $$
 The controller aims at the assigned task or charging dock. Target bearing, heading error, and distance are:
 
 $$
-\theta^*=\mathrm{atan2}(y^*-y,x^*-x),
+\theta^\ast=\mathrm{atan2}(y^\ast-y,x^\ast-x),
 \qquad
-e_\theta=\mathrm{wrap}(\theta^*-\theta),
+e_\theta=\mathrm{wrap}(\theta^\ast-\theta),
 \qquad
-d=\sqrt{(x^*-x)^2+(y^*-y)^2}.
+d=\sqrt{(x^\ast-x)^2+(y^\ast-y)^2}.
 $$
 
 The commanded linear and angular velocities are:
