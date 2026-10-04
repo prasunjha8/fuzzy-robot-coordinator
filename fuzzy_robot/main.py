@@ -1,4 +1,10 @@
+import argparse
 import math
+
+try:
+    import tkinter as tk
+except ModuleNotFoundError:
+    tk = None
 
 robots = {
     "R1": {
@@ -71,6 +77,7 @@ def right_shoulder(x, a, b):
         return 1.0
     else:
         return (x - a) / (b - a)
+
 
 def battery_low(x):
     return left_shoulder(x, 30, 50)
@@ -278,6 +285,126 @@ def fuzzy_suitability(robot, task):
     return weighted_score / total_strength
 
 
+def mathematical_suitability(robot, task):
+    if task["payload"] > robot["payload_capacity"]:
+        return None
+
+    distance_value = distance(robot["position"], task["position"])
+    battery_score = robot["battery"] / 100.0
+    distance_score = max(0.0, 1.0 - (distance_value / 14.0))
+    load_ratio = task["payload"] / robot["payload_capacity"]
+    load_score = max(0.0, 1.0 - load_ratio)
+    workload_score = 1.0 - min(robot["workload"] / 3.0, 1.0)
+    urgency_score = task["urgency"] / 100.0
+
+    suitability = (
+        0.35 * battery_score
+        + 0.25 * distance_score
+        + 0.20 * urgency_score
+        + 0.15 * load_score
+        + 0.05 * workload_score
+    )
+    return max(0.0, min(1.0, suitability))
+
+
+def combined_suitability(robot, task):
+    if task["payload"] > robot["payload_capacity"]:
+        return None
+
+    fuzzy_score = fuzzy_suitability(robot, task)
+    if fuzzy_score is None:
+        return None
+
+    mathematical_score = mathematical_suitability(robot, task)
+    if mathematical_score is None:
+        return fuzzy_score
+
+    return 0.65 * fuzzy_score + 0.35 * mathematical_score
+
+
+def select_best_robot_for_task(task_name, robot_map=None, task_map=None, scorer=combined_suitability):
+    if robot_map is None:
+        robot_map = robots
+    if task_map is None:
+        task_map = tasks
+
+    task = task_map[task_name]
+    best_robot = None
+    best_score = None
+
+    for robot_name, robot in robot_map.items():
+        score = scorer(robot, task)
+        if score is None:
+            continue
+        if best_score is None or score > best_score:
+            best_score = score
+            best_robot = robot_name
+
+    return best_robot, best_score
+
+
+def assign_tasks_to_robots(robot_map=None, task_map=None, scorer=combined_suitability):
+    if robot_map is None:
+        robot_map = robots
+    if task_map is None:
+        task_map = tasks
+
+    priorities = {}
+    for robot_name, robot in robot_map.items():
+        for task_name, task in task_map.items():
+            score = scorer(robot, task)
+            if score is not None:
+                priorities[(robot_name, task_name)] = score * (
+                    0.5 + task["urgency"] / 200.0
+                )
+
+    robot_names = list(robot_map)
+    task_names = list(task_map)
+    best_priority = -1.0
+    best_assignment = {}
+
+    def search(robot_index, used_tasks, assignment, total_priority):
+        nonlocal best_priority, best_assignment
+        if robot_index == len(robot_names):
+            if total_priority > best_priority:
+                best_priority = total_priority
+                best_assignment = assignment.copy()
+            return
+
+        robot_name = robot_names[robot_index]
+        for task_name in task_names:
+            priority = priorities.get((robot_name, task_name))
+            if priority is None or task_name in used_tasks:
+                continue
+            assignment[robot_name] = task_name
+            used_tasks.add(task_name)
+            search(
+                robot_index + 1,
+                used_tasks,
+                assignment,
+                total_priority + priority,
+            )
+            used_tasks.remove(task_name)
+            del assignment[robot_name]
+
+        search(robot_index + 1, used_tasks, assignment, total_priority)
+
+    search(0, set(), {}, 0.0)
+
+    assignments = {
+        task_name: {"robot": None, "score": None, "feasible": False}
+        for task_name in task_names
+    }
+    for robot_name, task_name in best_assignment.items():
+        assignments[task_name] = {
+            "robot": robot_name,
+            "score": scorer(robot_map[robot_name], task_map[task_name]),
+            "feasible": True,
+        }
+
+    return assignments
+
+
 def build_suitability_matrix():
     matrix = {}
 
@@ -303,5 +430,108 @@ def print_matrix(matrix):
         print(f"{robot_name:<10}{values}")
 
 
+def print_assignment_summary(assignments):
+    print("\nOPTIMAL ALLOCATION")
+    print("-" * 40)
+    for task_name, data in assignments.items():
+        if data["robot"] is None:
+            print(f"{task_name:<4} -> waiting (no feasible robot)")
+        else:
+            print(f"{task_name:<4} -> {data['robot']} (score={data['score']:.3f})")
+
+
+def animate_assignments(assignments=None, title="Fuzzy Robot Warehouse"):
+    if tk is None:
+        raise RuntimeError("Tkinter is not available in this environment; the animation requires a local GUI runtime.")
+    if assignments is None:
+        assignments = assign_tasks_to_robots()
+
+    root = tk.Tk()
+    root.title(title)
+    canvas = tk.Canvas(root, width=700, height=500, bg="white")
+    canvas.pack(fill="both", expand=True)
+
+    world = {
+        "min_x": 0,
+        "max_x": 10,
+        "min_y": 0,
+        "max_y": 10,
+    }
+
+    def to_canvas(point):
+        x, y = point
+        px = 80 + (x - world["min_x"]) / (world["max_x"] - world["min_x"]) * (700 - 140)
+        py = 420 - (y - world["min_y"]) / (world["max_y"] - world["min_y"]) * (420 - 80)
+        return px, py
+
+    robot_positions = {
+        name: list(robot["position"]) for name, robot in robots.items()
+    }
+    active_targets = {}
+    for task_name, info in assignments.items():
+        robot_name = info["robot"]
+        if robot_name is None:
+            continue
+        active_targets[robot_name] = list(tasks[task_name]["position"])
+
+    def draw_scene():
+        canvas.delete("all")
+        for x in range(0, 11):
+            px1, _ = to_canvas((x, 0))
+            px2, _ = to_canvas((x, 10))
+            canvas.create_line(px1, 80, px2, 420, fill="#e6e6e6")
+        for y in range(0, 11):
+            _, py1 = to_canvas((0, y))
+            _, py2 = to_canvas((10, y))
+            canvas.create_line(80, py1, 620, py2, fill="#e6e6e6")
+
+        for task_name, task in tasks.items():
+            tx, ty = to_canvas(task["position"])
+            canvas.create_oval(tx - 12, ty - 12, tx + 12, ty + 12, fill="#ffb000", outline="black")
+            canvas.create_text(tx, ty + 22, text=task_name, font=("Arial", 10))
+
+        for robot_name, position in robot_positions.items():
+            rx, ry = to_canvas(position)
+            canvas.create_rectangle(rx - 12, ry - 8, rx + 12, ry + 8, fill="#3b82f6", outline="black")
+            canvas.create_text(rx, ry - 18, text=robot_name, font=("Arial", 10, "bold"))
+
+        for task_name, info in assignments.items():
+            robot_name = info["robot"]
+            if robot_name is None:
+                continue
+            px, py = to_canvas(tasks[task_name]["position"])
+            canvas.create_text(px, py - 26, text=f"{robot_name}->{task_name}", font=("Arial", 9))
+
+    def update_positions():
+        for robot_name, target in active_targets.items():
+            x, y = robot_positions[robot_name]
+            tx, ty = target
+            dx = tx - x
+            dy = ty - y
+            distance = math.hypot(dx, dy)
+            if distance < 0.15:
+                continue
+            step = min(0.3, distance)
+            robot_positions[robot_name][0] = x + (dx / distance) * step
+            robot_positions[robot_name][1] = y + (dy / distance) * step
+        draw_scene()
+        root.after(50, update_positions)
+
+    draw_scene()
+    root.after(100, update_positions)
+    root.mainloop()
+
+
 if __name__ == "__main__":
-    print_matrix(build_suitability_matrix())
+    parser = argparse.ArgumentParser(description="Fuzzy multi-robot decision system")
+    parser.add_argument("--animate", action="store_true", help="launch a simple 2D warehouse animation")
+    args = parser.parse_args()
+
+    matrix = build_suitability_matrix()
+    print_matrix(matrix)
+
+    assignments = assign_tasks_to_robots()
+    print_assignment_summary(assignments)
+
+    if args.animate:
+        animate_assignments(assignments)

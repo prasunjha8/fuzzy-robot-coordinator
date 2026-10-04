@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fuzzy Robot Warehouse</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Autonomous fuzzy warehouse</p>
+          <h1>Robot Task Allocation Simulator</h1>
+        </div>
+        <button id="resetButton">Reset simulation</button>
+      </header>
+
+      <div class="hint-box">
+        MuJoCo is the primary simulation. In this browser companion, enter a named job or click the map to set its location; robots assign feasible work and recharge autonomously.
+      </div>
+
+      <main class="layout">
+        <section class="panel simulation-panel">
+          <canvas id="scene" width="860" height="560"></canvas>
+        </section>
+
+        <aside class="panel sidebar">
+          <div class="status-card">
+            <h2>Live status</h2>
+            <div id="statusList"></div>
+          </div>
+
+          <div class="status-card">
+            <h2>Inventory</h2>
+            <div id="inventoryList"></div>
+          </div>
+
+          <div class="status-card">
+            <h2>Assignments</h2>
+            <div id="assignmentList"></div>
+          </div>
+
+          <div class="status-card">
+            <h2>Task queue</h2>
+            <div id="taskList"></div>
+          </div>
+
+          <form class="status-card task-form" id="taskForm">
+            <h2>Create a task</h2>
+            <label for="taskDescription">What should the robot do?</label>
+            <input id="taskDescription" name="description" maxlength="100" value="Deliver a package" required />
+            <div class="form-grid">
+              <label>
+                X (0-10 m)
+                <input id="taskX" name="x" type="number" min="0" max="10" step="0.1" value="6" required />
+              </label>
+              <label>
+                Y (0-10 m)
+                <input id="taskY" name="y" type="number" min="0" max="10" step="0.1" value="6" required />
+              </label>
+              <label>
+                Payload (kg)
+                <input id="taskPayload" name="payload" type="number" min="1" value="5" required />
+              </label>
+              <label>
+                Urgency (0-100)
+                <input id="taskUrgency" name="urgency" type="number" min="0" max="100" value="70" required />
+              </label>
+            </div>
+            <button type="submit">Add to task queue</button>
+            <p id="taskMessage" class="task-message" role="status"></p>
+          </form>
+        </aside>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
