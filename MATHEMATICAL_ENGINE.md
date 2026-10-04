@@ -1,270 +1,374 @@
-# Mathematical Engine and Optimization
+# Fuzzy Robot Coordinator: Interactive Math & Simulation Guide
 
-This note explains the decision calculations used by the fuzzy robot coordinator and how their results drive the MuJoCo robots. It describes the implementation in `fuzzy_robot/main.py`, `simulator.py`, and `mujoco_sim.py`.
+> **Math rendering:** equations use standard `$...$` and `$$...$$` Markdown math delimiters. GitHub renders them directly. In VS Code, use a Markdown preview with math support if your current preview displays the TeX source instead.
 
-## 1. Robot-task inputs
+This guide connects the equations to the implementation and MuJoCo demo. It is designed for reading in small steps: use the clickable contents, expand the worked examples, and tick off the experiments as you try them.
 
-For robot \(i\) and task \(j\), the decision engine uses:
+## Contents
 
-| Symbol | Input | Meaning |
-|---|---|---|
-| \(B_i\) | Battery | Remaining battery percentage, from 0 to 100 |
-| \(D_{ij}\) | Distance | Euclidean distance from robot \(i\) to task \(j\), in metres |
-| \(W_i\) | Workload | Current workload indicator |
-| \(L_{ij}\) | Load ratio | Task payload divided by robot payload capacity |
-| \(U_j\) | Urgency | Task urgency, from 0 to 100 |
+- [Watch the MuJoCo simulation](#watch-the-mujoco-simulation)
+- [1. Inputs and feasibility](#1-inputs-and-feasibility)
+- [2. Membership functions](#2-membership-functions)
+- [3. Fuzzy inference](#3-fuzzy-inference-sugeno)
+- [4. Mathematical baseline](#4-mathematical-baseline)
+- [5. Assignment optimization](#5-assignment-optimization)
+- [6. Robot motion in MuJoCo](#6-robot-motion-in-mujoco)
+- [7. Battery and charging](#7-battery-and-charging)
+- [8. Try it yourself](#8-try-it-yourself)
+- [Implementation map](#implementation-map)
 
-Distance and payload ratio are calculated as:
+## Watch the MuJoCo simulation
 
-\[
-D_{ij} = \sqrt{(x_i-x_j)^2 + (y_i-y_j)^2}
+This is an animation rendered from the project's MuJoCo model and physics, not a mock-up:
+
+![Animated MuJoCo warehouse: robots move between jobs and the cyan charger](./docs/assets/mujoco-warehouse-demo.gif)
+
+[Open the still screenshot](./docs/assets/mujoco-warehouse-demo.png) ·
+[Regenerate the GIF](#regenerate-the-mujoco-animation)
+
+The cyan pad is the charging station; gold and green markers are open and completed jobs. The viewer also shows live robot/task labels.
+
+## 1. Inputs and feasibility
+
+For robot $i$ and task $j$, the engine considers battery $B_i$, position $(x_i,y_i)$, workload $W_i$, task payload $q_j$, robot payload capacity $C_i$, task urgency $U_j$, and task position $(x_j,y_j)$.
+
+Euclidean travel distance and normalized payload load are:
+
+$$
+D_{ij} = \sqrt{(x_i-x_j)^2 + (y_i-y_j)^2},
 \qquad
-L_{ij} = \frac{\text{task payload}_j}{\text{robot capacity}_i}.
-\]
+L_{ij} = \frac{q_j}{C_i}.
+$$
 
-The pair is infeasible when \(L_{ij} > 1\). Infeasible robot-task pairs return `None`; the allocator never assigns them.
+A task fits on a robot only when:
 
-## 2. Fuzzification
+$$
+L_{ij} \leq 1
+\quad\Longleftrightarrow\quad
+q_j \leq C_i.
+$$
 
-Fuzzification maps a numerical input to a membership degree \(\mu(x)\in[0,1]\). The code uses triangular and shoulder functions.
+Pairs that violate this condition are marked infeasible (`None`) and cannot be assigned.
+
+<details>
+<summary>What these inputs mean in this demo</summary>
+
+Battery is a percentage. Distance and warehouse coordinates use metres. Workload is a small indicator (0–2 in the seeded robots). Payload is measured in kilograms. Urgency ranges from 0 to 100.
+
+For example, a 5 kg task assigned to a robot with 10 kg capacity has $L=5/10=0.5$. A 12 kg task on that same robot has $L=1.2$, so that robot-task pair is infeasible.
+</details>
+
+## 2. Membership functions
+
+Fuzzification converts a crisp number into one or more linguistic membership degrees between zero and one. The graph below shows the actual battery memberships used in `fuzzy_robot/main.py`.
+
+![Battery low, medium, and high membership functions](./docs/assets/battery-membership.svg)
 
 ### Triangular membership
 
-For parameters \(a < b < c\), the triangular function is:
+For $a<b<c$, a triangular set is:
 
-\[
+$$
 \mu_{\triangle}(x;a,b,c)=
 \begin{cases}
-0 & x\leq a \text{ or } x\geq c,\\
-\frac{x-a}{b-a} & a < x < b,\\
-\frac{c-x}{c-b} & b\leq x<c.
+0, & x\leq a \text{ or } x\geq c,\\[2pt]
+\dfrac{x-a}{b-a}, & a<x<b,\\[6pt]
+\dfrac{c-x}{c-b}, & b\leq x<c.
 \end{cases}
-\]
+$$
 
-It rises from zero at \(a\), reaches one at \(b\), then falls to zero at \(c\).
+### Shoulder memberships
 
-### Shoulder membership
+The left shoulder (high membership at small values) is:
 
-The left shoulder is:
-
-\[
+$$
 \mu_{\mathrm{left}}(x;a,b)=
 \begin{cases}
-1 & x\leq a,\\
-\frac{b-x}{b-a} & a<x<b,\\
-0 & x\geq b.
+1, & x\leq a,\\[2pt]
+\dfrac{b-x}{b-a}, & a<x<b,\\[6pt]
+0, & x\geq b.
 \end{cases}
-\]
+$$
 
-The right shoulder is its increasing counterpart:
+The right shoulder (high membership at large values) is:
 
-\[
+$$
 \mu_{\mathrm{right}}(x;a,b)=
 \begin{cases}
-0 & x\leq a,\\
-\frac{x-a}{b-a} & a<x<b,\\
-1 & x\geq b.
+0, & x\leq a,\\[2pt]
+\dfrac{x-a}{b-a}, & a<x<b,\\[6pt]
+1, & x\geq b.
 \end{cases}
-\]
+$$
 
-The membership breakpoints currently configured in `fuzzy_robot/main.py` are:
+The implementation uses these breakpoints:
 
-| Variable | Linguistic set | Membership |
+| Variable | Linguistic set | Membership function |
 |---|---|---|
-| Battery (%) | low | left shoulder \((30,50)\) |
-| | medium | triangle \((30,50,70)\) |
-| | high | right shoulder \((50,70)\) |
-| Distance (m) | near | left shoulder \((2,5)\) |
-| | medium | triangle \((3,6,9)\) |
-| | far | right shoulder \((7,11)\) |
-| Workload | light | left shoulder \((0.5,1.5)\) |
-| | moderate | triangle \((0.5,1.5,2.5)\) |
-| | heavy | right shoulder \((1.5,2.5)\) |
-| Load ratio | low | left shoulder \((0.2,0.4)\) |
-| | medium | triangle \((0.3,0.5,0.7)\) |
-| | high | right shoulder \((0.6,0.8)\) |
-| Urgency (0-100) | low | left shoulder \((20,40)\) |
-| | medium | triangle \((25,50,75)\) |
-| | high | triangle \((60,80,95)\) |
-| | critical | right shoulder \((85,100)\) |
+| Battery (%) | low | Left shoulder $(30,50)$ |
+| | medium | Triangle $(30,50,70)$ |
+| | high | Right shoulder $(50,70)$ |
+| Distance (m) | near | Left shoulder $(2,5)$ |
+| | medium | Triangle $(3,6,9)$ |
+| | far | Right shoulder $(7,11)$ |
+| Workload | light | Left shoulder $(0.5,1.5)$ |
+| | moderate | Triangle $(0.5,1.5,2.5)$ |
+| | heavy | Right shoulder $(1.5,2.5)$ |
+| Load ratio | low | Left shoulder $(0.2,0.4)$ |
+| | medium | Triangle $(0.3,0.5,0.7)$ |
+| | high | Right shoulder $(0.6,0.8)$ |
+| Urgency (0–100) | low | Left shoulder $(20,40)$ |
+| | medium | Triangle $(25,50,75)$ |
+| | high | Triangle $(60,80,95)$ |
+| | critical | Right shoulder $(85,100)$ |
 
-Adjacent sets overlap, so an input can partially belong to more than one linguistic category. For example, a battery can be partly `medium` and partly `high`.
+Sets overlap intentionally. An input may partially belong to both `medium` and `high`, for example.
 
-## 3. Sugeno-style fuzzy inference
+<details>
+<summary>Worked fuzzification: battery 60%, load ratio 0.5</summary>
 
-The rule base contains eight expert-authored rules. A rule's antecedent uses the minimum membership as its firing strength:
+Battery memberships:
 
-\[
+$$
+\mu_{\mathrm{low}}(60)=0,\qquad
+\mu_{\mathrm{medium}}(60)=\frac{70-60}{70-50}=0.5,\qquad
+\mu_{\mathrm{high}}(60)=\frac{60-50}{70-50}=0.5.
+$$
+
+So 60% battery is halfway between the medium and high sets. For load ratio $L=0.5$:
+
+$$
+\mu_{\mathrm{low}}(0.5)=0,\qquad
+\mu_{\mathrm{medium}}(0.5)=1,\qquad
+\mu_{\mathrm{high}}(0.5)=0.
+$$
+
+The number is not replaced by a word: the fuzzy system keeps the membership degrees and lets rules combine them.
+</details>
+
+## 3. Fuzzy inference (Sugeno)
+
+The current model has eight hand-authored rules. A rule's AND conditions use the minimum operator; this gives its firing strength:
+
+$$
 \alpha_r = \min_{(v,\ell)\in r}\mu_{v,\ell}(x_v).
-\]
+$$
 
-For example, the rule
+For example, the rule “battery high AND distance near AND load low” fires at:
 
-> IF battery is high AND distance is near AND load is low
-
-fires with strength:
-
-\[
+$$
 \alpha_r = \min\left(
 \mu_{\mathrm{battery,high}},
 \mu_{\mathrm{distance,near}},
 \mu_{\mathrm{load,low}}
 \right).
-\]
+$$
 
-Each rule has a first-order Sugeno consequent. Before calculating it, inputs are normalized as:
+The numerical inputs for each Sugeno consequent are normalized as:
 
-\[
-b = B_i/100,\quad
-d = \min(D_{ij}/14,1),\quad
-\ell = L_{ij},\quad
-w = \min(W_i/3,1),\quad
-u = U_j/100.
-\]
+$$
+b=\frac{B_i}{100},\qquad
+d=\min\left(\frac{D_{ij}}{14},1\right),\qquad
+\ell=L_{ij},\qquad
+w=\min\left(\frac{W_i}{3},1\right),\qquad
+u=\frac{U_j}{100}.
+$$
 
-The consequent for rule \(r\) is an affine score:
+Each rule produces a first-order Sugeno output:
 
-\[
-z_r = \operatorname{clip}_{[0,1]}
-\left(
-c_r + \beta_{r,b}b+\beta_{r,d}d+
-\beta_{r,\ell}\ell+\beta_{r,w}w+\beta_{r,u}u
-\right).
-\]
+$$
+z_r=\operatorname{clip}_{[0,1]}
+\left(c_r+\beta_{r,b}b+\beta_{r,d}d+
+\beta_{r,\ell}\ell+\beta_{r,w}w+\beta_{r,u}u\right).
+$$
 
-The current rule parameters \((c,\beta_b,\beta_d,\beta_\ell,\beta_w,\beta_u)\) are:
+The eight rule consequents in the code are:
 
-| Rule | Antecedent | \(c\) | \(\beta_b\) | \(\beta_d\) | \(\beta_\ell\) | \(\beta_w\) | \(\beta_u\) |
-|---|---|---:|---:|---:|---:|---:|---:|
-| 1 | battery high, distance near, load low | 0.70 | 0.20 | -0.10 | -0.10 | -0.05 | 0.10 |
-| 2 | battery high, distance medium, load medium | 0.60 | 0.20 | -0.10 | -0.10 | -0.05 | 0.10 |
-| 3 | battery medium, distance near, load medium | 0.55 | 0.15 | -0.05 | -0.10 | -0.05 | 0.15 |
-| 4 | battery low, distance far | 0.20 | 0.10 | -0.20 | -0.10 | -0.10 | 0.10 |
-| 5 | load high, battery low | 0.15 | 0.10 | -0.05 | -0.20 | -0.10 | 0.10 |
-| 6 | urgency critical, battery high, distance near | 0.75 | 0.15 | -0.05 | -0.05 | -0.05 | 0.20 |
-| 7 | workload heavy, distance far | 0.20 | 0.10 | -0.15 | -0.05 | -0.20 | 0.10 |
-| 8 | urgency high, battery medium, distance medium | 0.55 | 0.15 | -0.10 | -0.05 | -0.05 | 0.20 |
+| Rule | Conditions | $c$ | $\beta_b$ | $\beta_d$ | $\beta_\ell$ | $\beta_w$ | $\beta_u$ |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 1 | Battery high, distance near, load low | 0.70 | 0.20 | -0.10 | -0.10 | -0.05 | 0.10 |
+| 2 | Battery high, distance medium, load medium | 0.60 | 0.20 | -0.10 | -0.10 | -0.05 | 0.10 |
+| 3 | Battery medium, distance near, load medium | 0.55 | 0.15 | -0.05 | -0.10 | -0.05 | 0.15 |
+| 4 | Battery low, distance far | 0.20 | 0.10 | -0.20 | -0.10 | -0.10 | 0.10 |
+| 5 | Load high, battery low | 0.15 | 0.10 | -0.05 | -0.20 | -0.10 | 0.10 |
+| 6 | Urgency critical, battery high, distance near | 0.75 | 0.15 | -0.05 | -0.05 | -0.05 | 0.20 |
+| 7 | Workload heavy, distance far | 0.20 | 0.10 | -0.15 | -0.05 | -0.20 | 0.10 |
+| 8 | Urgency high, battery medium, distance medium | 0.55 | 0.15 | -0.10 | -0.05 | -0.05 | 0.20 |
 
-The fuzzy suitability is the normalized weighted average of the fired rule consequents:
+The fuzzy score is the weighted average of the consequents that fired:
 
-\[
-S^{\mathrm{fuzzy}}_{ij} =
+$$
+S^{\mathrm{fuzzy}}_{ij}=
 \begin{cases}
-\frac{\sum_r \alpha_r z_r}{\sum_r \alpha_r} & \sum_r\alpha_r>0,\\
-0 & \text{no rule fires}.
+\dfrac{\sum_r \alpha_r z_r}{\sum_r \alpha_r}, & \sum_r\alpha_r>0,\\[8pt]
+0, & \text{no rule fires}.
 \end{cases}
-\]
+$$
 
-This is Sugeno-style inference: it averages numerical consequent functions rather than forming an output fuzzy set and taking its centroid. The rules and their parameters are currently hand-designed, not learned from a training dataset.
+This is Sugeno-style inference: numerical rule consequents are averaged. It is not Mamdani centroid defuzzification. The rules and coefficients are designed by hand; there is no learned training model yet.
 
-## 4. Mathematical baseline and combined score
+## 4. Mathematical baseline
 
-A separate weighted utility baseline provides a simple reference model. First define positive-is-better features:
+A weighted utility score gives an independent numerical baseline. First make every feature “larger is better”:
 
-\[
+$$
 \begin{aligned}
-b_i &= B_i/100,\\
-d^+_{ij} &= \max(0,1-D_{ij}/14),\\
+b_i &= \frac{B_i}{100},\\
+d^+_{ij} &= \max\left(0,1-\frac{D_{ij}}{14}\right),\\
 \ell^+_{ij} &= \max(0,1-L_{ij}),\\
-w^+_i &= 1-\min(W_i/3,1),\\
-u^+_j &= U_j/100.
+w^+_i &= 1-\min\left(\frac{W_i}{3},1\right),\\
+u^+_j &= \frac{U_j}{100}.
 \end{aligned}
-\]
+$$
 
-Then:
+Then compute:
 
-\[
+$$
 S^{\mathrm{math}}_{ij}
 =0.35b_i+0.25d^+_{ij}+0.20u^+_j
 +0.15\ell^+_{ij}+0.05w^+_i.
-\]
+$$
 
-The weights sum to one. Battery has the largest weight; urgency, distance, payload margin, and workload contribute the remaining weights. The baseline is clipped to \([0,1]\).
+The weights sum to one. The final suitability blends fuzzy and baseline scores:
 
-For feasible pairs, the combined suitability used by the simulation is:
-
-\[
+$$
 S_{ij}=0.65S^{\mathrm{fuzzy}}_{ij}+0.35S^{\mathrm{math}}_{ij}.
-\]
+$$
 
-The fuzzy score therefore remains the primary signal, while the mathematical baseline gives a non-rule-based contribution. These weights are design choices that can be tuned or evaluated; they are not learned parameters.
+The fuzzy system is the main contribution (65% of this blended score); the weighted baseline contributes 35%. These weights are transparent design choices, not learned values.
 
-## 5. Task allocation as a constrained optimization
+## 5. Assignment optimization
 
-At each dispatch, the runtime in `simulator.py` considers robots that are idle, not charging, and above the low-battery threshold, along with all pending tasks. A robot-task pair with payload exceeding capacity is excluded.
+The allocator considers idle, non-charging robots above the low-battery threshold and all pending tasks. Urgency scales each feasible robot-task score:
 
-Urgency is applied as a priority multiplier:
-
-\[
+$$
 P_{ij}=S_{ij}\left(0.5+\frac{U_j}{200}\right).
-\]
+$$
 
-For urgency \(0\leq U_j\leq100\), the multiplier ranges from 0.5 to 1.0. Let \(x_{ij}\in\{0,1\}\) indicate whether available robot \(i\) is assigned open task \(j\). The dispatch objective is:
+Since $0\leq U_j\leq100$, the multiplier ranges from 0.5 to 1. Let $x_{ij}\in\{0,1\}$ mean robot $i$ receives task $j$. The dispatch solves:
 
-\[
-\max_x \sum_i\sum_j P_{ij}x_{ij}
-\]
+$$
+\max_x\sum_i\sum_j P_{ij}x_{ij}
+$$
 
 subject to:
 
-\[
-\sum_j x_{ij}\leq1 \quad\forall i
+$$
+\sum_j x_{ij}\leq1\quad\forall i,
 \qquad
-\sum_i x_{ij}\leq1 \quad\forall j
+\sum_i x_{ij}\leq1\quad\forall j,
 \qquad
-x_{ij}=0 \text{ for infeasible pairs.}
-\]
+x_{ij}=0\quad\text{for infeasible payload pairs}.
+$$
 
-The inequalities allow robots or tasks to remain unassigned. The current implementation searches the small assignment space directly and finds the maximum-total-priority matching for the available robots in that dispatch. Equal-utility solutions are resolved deterministically by robot and task insertion order. Since the demo has three robots, exhaustive matching is small; a larger fleet would benefit from a polynomial-time assignment solver such as the Hungarian algorithm or min-cost flow.
+These constraints mean each robot gets at most one new job in a dispatch, each task goes to at most one robot, and over-capacity pairs are forbidden. Robots can remain idle and tasks can wait. Existing in-progress assignments stay reserved.
 
-Assignments already in progress remain reserved. If a robot's battery reaches 25% or less, it suspends its task, drives to the charger, and resumes dispatch after charging to 85%. Completed tasks update the associated demo inventory count. Once all open tasks are finished, the simulation queues another named delivery task while its 24-marker capacity allows it.
+For the small demo, `simulator.py` searches all possible partial one-to-one matchings and selects the maximum total priority. `fuzzy_robot/main.py` uses the same objective for its static planner. This is exact for the three-robot demo; for a much larger fleet, replace exhaustive search with the Hungarian algorithm or min-cost flow.
 
-## 6. From assignment to MuJoCo wheel motion
+<details>
+<summary>Worked assignment comparison</summary>
 
-The MuJoCo model represents each robot as a differential-drive body with two actuated wheels. With wheel radius \(r\), wheel separation \(L\), and wheel angular velocities \(\omega_L,\omega_R\), ideal differential-drive kinematics are:
+Suppose two robots and two tasks have these already urgency-weighted priorities:
 
-\[
+| | Task A | Task B |
+|---|---:|---:|
+| Robot 1 | 0.90 | 0.80 |
+| Robot 2 | 0.85 | 0.10 |
+
+A greedy first choice of Robot 1 → A leaves Robot 2 → B, total $0.90+0.10=1.00$. The global matching instead selects Robot 1 → B and Robot 2 → A, total $0.80+0.85=1.65$. The implementation optimizes the total, not each local choice independently.
+</details>
+
+## 6. Robot motion in MuJoCo
+
+The MuJoCo robots have two actuated wheels and use differential-drive kinematics. For wheel radius $r$, wheel separation $L$, and wheel angular speeds $\omega_L,\omega_R$:
+
+$$
 v=\frac{r}{2}(\omega_R+\omega_L),
 \qquad
 \dot{\theta}=\frac{r}{L}(\omega_R-\omega_L).
-\]
+$$
 
-The controller calculates the target bearing \(\theta^*=\operatorname{atan2}(y^*-y,x^*-x)\), heading error \(e_\theta=\operatorname{wrap}(\theta^*-\theta)\), and target distance \(d\). It requests:
+The controller aims at the assigned task or charging dock. Target bearing, heading error, and distance are:
 
-\[
+$$
+\theta^*=\operatorname{atan2}(y^*-y,x^*-x),
+\qquad
+e_\theta=\operatorname{wrap}(\theta^*-\theta),
+\qquad
+d=\sqrt{(x^*-x)^2+(y^*-y)^2}.
+$$
+
+The commanded linear and angular velocities are:
+
+$$
 v_c=\min(0.8,1.2d)\max(0,\cos(e_\theta)),
 \qquad
 \omega_c=\operatorname{clip}(2.5e_\theta,-1.8,1.8).
-\]
+$$
 
-These chassis velocities are converted to wheel speeds:
+Convert those commands to wheel speeds:
 
-\[
+$$
 \omega_L=\frac{v_c-\frac{L}{2}\omega_c}{r},
 \qquad
 \omega_R=\frac{v_c+\frac{L}{2}\omega_c}{r}.
-\]
+$$
 
-Wheel speeds are limited to \([-12,12]\) rad/s and sent to MuJoCo velocity actuators. MuJoCo advances the rigid-body and wheel dynamics; measured body positions feed back into the task and battery state. The current controller is intentionally simple: it follows direct target bearings and does not implement obstacle-aware path planning or ROS navigation.
+The wheel speeds are limited to $[-12,12]$ rad/s and sent to MuJoCo velocity actuators. MuJoCo advances the bodies and wheels; measured positions feed back to the task and battery state. This demo follows direct target bearings—it does not yet do obstacle avoidance or global path planning.
 
-## 7. Battery and charging model
+## 7. Battery and charging
 
-Battery is a simulation state rather than an electrical battery model. In the MuJoCo path, the charge percentage is reduced by 1.5 percentage points per metre traveled. At or below 25%, the robot targets the dock at \((1,9)\), and while docked its charge increases by 12 percentage points per simulated second until it reaches 85%. The browser companion uses the same thresholds and dock, with its own simplified movement update.
+Battery is a simplified simulation state, not an electrical or motor-current model. The MuJoCo path reduces charge by 1.5 percentage points per metre travelled. At or below 25%, a robot suspends work and targets the cyan dock at $(1,9)$. At the dock it charges at 12 percentage points per simulated second until 85%, then returns to the pending queue.
 
-## 8. Scope and next mathematical experiments
+## 8. Try it yourself
 
-This prototype is intended to make the theory visible, not to claim an industrially validated controller. Useful next experiments:
+Run the MuJoCo window with `.venv/bin/mjpython mujoco_sim.py`, then type tasks into the same terminal:
 
-1. Sweep the membership breakpoints and compare assignment outcomes.
-2. Compare fuzzy-only, mathematical-only, and combined scores on repeated scenarios.
-3. Compare the current objective against minimum travel distance, balanced workload, and battery reserve constraints.
-4. Add uncertain travel time or energy as triangular fuzzy numbers and propagate their bounds.
-5. Learn rule/consequent parameters from labelled examples, then compare against this transparent hand-authored baseline.
-6. Model inventory demand and replenishment explicitly; inventory updates in the current demo are simple task-completion effects, not a learned demand forecast.
+```text
+task 7 8 3 90 Deliver a medicine kit
+status
+help
+quit
+```
 
-Run the implementation and tests from the repository root:
+| Try | What to explore |
+|---|---|
+| Add a nearby, light task | Does distance and payload margin change the selected robot? |
+| Add a task with urgency 100 | Does the urgency multiplier make it win the matching? |
+| Add a payload above every robot's capacity | Does it remain waiting as infeasible? |
+| Watch R2 charge, then resume | Does the battery policy protect low-charge work? |
+| Change a membership breakpoint | How does fuzzification affect the score and assignment? |
+| Compare fuzzy-only and combined scores | How much influence does the mathematical baseline have? |
+
+### Personal weekend note
+
+This weekend, I tried something new: I used MuJoCo for the first time and applied ideas from my theoretical subjects to a robotics project. I’m exploring how fuzzy logic and mathematical decision-making can coordinate robots, then using simulation to see those ideas in motion.
+
+## Regenerate the MuJoCo animation
+
+The embedded GIF and still image are rendered from the actual MuJoCo model and controller. To regenerate them:
 
 ```bash
-.venv/bin/mjpython mujoco_sim.py
-.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m pip install -r requirements-docs.txt
+.venv/bin/python scripts/render_demo_gif.py
 ```
+
+The script writes `docs/assets/mujoco-warehouse-demo.gif` and `docs/assets/mujoco-warehouse-demo.png`.
+
+## Implementation map
+
+| File | Role |
+|---|---|
+| `fuzzy_robot/main.py` | Membership functions, fuzzy rules, suitability scores, static global assignment |
+| `simulator.py` | Shared robot/task state, exact runtime task matching, battery and charging policy |
+| `mujoco_sim.py` | MuJoCo warehouse model, motor control, user-created tasks, viewer labels |
+| `scripts/render_demo_gif.py` | Offscreen MuJoCo rendering for the guide's GIF and still image |
+| `tests/` | Regression tests for fuzzy scoring, matching, task creation, and charging |
+
+## Interactive reading checklist
+
+- [ ] Follow the equations from inputs through fuzzification and suitability.
+- [ ] Expand both worked examples and check their arithmetic.
+- [ ] Watch the GIF and identify a task marker and the charger.
+- [ ] Add one task in MuJoCo and check the robot's chosen destination.
+- [ ] Explain why the selected matching has a higher total score than a greedy choice.

@@ -2,6 +2,10 @@
 
 An explainable fuzzy-logic task allocator connected to a small autonomous warehouse simulation. The **primary demo is MuJoCo**: three motorized differential-drive robots move under MuJoCo physics, choose feasible jobs, and return to a visible charging dock when their battery is low. The browser dashboard is an optional local companion.
 
+![MuJoCo warehouse simulation: autonomous robots, tasks, and charger](./docs/assets/mujoco-warehouse-demo.gif)
+
+Want to see how the math works? Open the [interactive mathematical engine guide](./MATHEMATICAL_ENGINE.md) for rendered equations, expandable worked examples, the fuzzy membership graph, and the MuJoCo animation.
+
 ## Run the MuJoCo simulation on macOS
 
 From the repository root, create the environment once if you do not already have one:
@@ -54,6 +58,8 @@ This companion server is for local development and has no authentication; do not
 ## Decision engine
 
 The Python prototype computes fuzzy memberships for battery, distance, workload, payload load ratio, and task urgency. Eight Sugeno-style rules produce an interpretable suitability score, and a weighted mathematical baseline provides a comparison. The allocator maximizes total urgency-weighted suitability subject to one-task-per-robot, one-robot-per-task, and payload-capacity constraints. See [MATHEMATICAL_ENGINE.md](./MATHEMATICAL_ENGINE.md) for the membership formulas, rule consequents, objective, constraints, and MuJoCo controller equations.
+
+To rebuild the embedded demo media from the MuJoCo model, install the documentation dependencies and run `.venv/bin/python scripts/render_demo_gif.py`.
 
 ## Why I built this
 

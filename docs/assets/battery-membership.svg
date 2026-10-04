@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 340" role="img" aria-labelledby="title desc">
+  <title id="title">Battery fuzzy membership functions</title>
+  <desc id="desc">Battery low is a left shoulder from 30 to 50 percent, medium is a triangle from 30 to 70 peaking at 50, and high is a right shoulder from 50 to 70 percent.</desc>
+  <rect width="780" height="340" rx="18" fill="#0d1725"/>
+  <text x="34" y="37" fill="#e7f0ff" font-family="Arial, sans-serif" font-size="20" font-weight="700">Battery membership functions</text>
+  <text x="34" y="61" fill="#9db2ca" font-family="Arial, sans-serif" font-size="13">Membership degree μ(x) versus battery charge (%)</text>
+
+  <g stroke="#33445a" stroke-width="1">
+    <line x1="86" y1="260" x2="722" y2="260"/>
+    <line x1="86" y1="80" x2="86" y2="260"/>
+    <line x1="213" y1="80" x2="213" y2="260" stroke-dasharray="4 5"/>
+    <line x1="340" y1="80" x2="340" y2="260" stroke-dasharray="4 5"/>
+    <line x1="467" y1="80" x2="467" y2="260" stroke-dasharray="4 5"/>
+    <line x1="594" y1="80" x2="594" y2="260" stroke-dasharray="4 5"/>
+    <line x1="722" y1="80" x2="722" y2="260" stroke-dasharray="4 5"/>
+    <line x1="86" y1="80" x2="722" y2="80" stroke-dasharray="4 5"/>
+    <line x1="86" y1="170" x2="722" y2="170" stroke-dasharray="4 5"/>
+  </g>
+
+  <g fill="#9db2ca" font-family="Arial, sans-serif" font-size="12">
+    <text x="81" y="280">0</text>
+    <text x="204" y="280">20</text>
+    <text x="331" y="280">40</text>
+    <text x="458" y="280">60</text>
+    <text x="585" y="280">80</text>
+    <text x="709" y="280">100</text>
+    <text x="59" y="264">0</text>
+    <text x="59" y="174">0.5</text>
+    <text x="59" y="84">1</text>
+    <text x="380" y="310" text-anchor="middle">Battery charge (%)</text>
+    <text x="24" y="165" text-anchor="middle" transform="rotate(-90 24 165)">Membership μ</text>
+  </g>
+
+  <polyline points="86,80 277,80 404,260 722,260" fill="none" stroke="#ff746f" stroke-width="4" stroke-linejoin="round"/>
+  <polyline points="86,260 277,260 404,80 531,260 722,260" fill="none" stroke="#68b5ff" stroke-width="4" stroke-linejoin="round"/>
+  <polyline points="86,260 404,260 531,80 722,80" fill="none" stroke="#65dfa5" stroke-width="4" stroke-linejoin="round"/>
+
+  <g font-family="Arial, sans-serif" font-size="13" font-weight="700">
+    <text x="260" y="106" fill="#ff9691">LOW · left shoulder (30, 50)</text>
+    <text x="387" y="102" fill="#8bcbff">MEDIUM · triangle (30, 50, 70)</text>
+    <text x="521" y="132" fill="#8aefbb">HIGH · right shoulder (50, 70)</text>
+  </g>
+</svg>
