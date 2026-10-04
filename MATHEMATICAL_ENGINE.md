@@ -165,7 +165,7 @@ $$
 Each rule produces a first-order Sugeno output:
 
 $$
-z_r=\operatorname{clip}_{[0,1]}
+z_r=\mathrm{clip}_{[0,1]}
 \left(c_r+\beta_{r,b}b+\beta_{r,d}d+
 \beta_{r,\ell}\ell+\beta_{r,w}w+\beta_{r,u}u\right).
 $$
@@ -279,9 +279,9 @@ $$
 The controller aims at the assigned task or charging dock. Target bearing, heading error, and distance are:
 
 $$
-\theta^*=\operatorname{atan2}(y^*-y,x^*-x),
+\theta^*=\mathrm{atan2}(y^*-y,x^*-x),
 \qquad
-e_\theta=\operatorname{wrap}(\theta^*-\theta),
+e_\theta=\mathrm{wrap}(\theta^*-\theta),
 \qquad
 d=\sqrt{(x^*-x)^2+(y^*-y)^2}.
 $$
@@ -291,7 +291,7 @@ The commanded linear and angular velocities are:
 $$
 v_c=\min(0.8,1.2d)\max(0,\cos(e_\theta)),
 \qquad
-\omega_c=\operatorname{clip}(2.5e_\theta,-1.8,1.8).
+\omega_c=\mathrm{clip}(2.5e_\theta,-1.8,1.8).
 $$
 
 Convert those commands to wheel speeds:
