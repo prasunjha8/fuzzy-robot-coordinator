@@ -345,22 +345,50 @@ def run(smoke_steps=0):
         initial_positions = {
             name: (robot["x"], robot["y"]) for name, robot in state.robots.items()
         }
+        path_lengths = {name: 0.0 for name in initial_positions}
         for _ in range(smoke_steps):
+            step_start_positions = dict(previous_positions)
             state.tick(dt=SIMULATION_DT, move_robots=False)
             set_robot_controls(model, data, state)
             mujoco.mj_step(model, data)
             sync_state_from_physics(model, data, state, previous_positions)
-        moved = any(
-            math.hypot(
+            for name, robot in state.robots.items():
+                old_x, old_y = step_start_positions[name]
+                path_lengths[name] += math.hypot(
+                    robot["x"] - old_x,
+                    robot["y"] - old_y,
+                )
+
+        net_displacements = {
+            name: math.hypot(
                 state.robots[name]["x"] - initial_positions[name][0],
                 state.robots[name]["y"] - initial_positions[name][1],
             )
-            > 0.05
             for name in initial_positions
-        )
+        }
+        moved = [name for name, distance in net_displacements.items() if distance > 0.05]
         if not moved:
             raise RuntimeError("MuJoCo smoke test did not move any robot.")
-        print(f"MuJoCo smoke test passed: robots moved in {smoke_steps} physics steps.")
+        print(
+            f"MuJoCo smoke test passed: {smoke_steps} physics steps "
+            f"({smoke_steps * SIMULATION_DT:.2f} simulated seconds)."
+        )
+        print(
+            f"Robot motion: {len(moved)}/{len(initial_positions)} moved more than "
+            f"0.05 m net; {sum(path_lengths.values()):.3f} m total tracked path."
+        )
+        print(
+            "Net displacement: "
+            + ", ".join(
+                f"{name}={distance:.3f} m"
+                for name, distance in net_displacements.items()
+            )
+        )
+        print(
+            f"Jobs completed: {len(state.completed)}/{len(state.tasks)}; "
+            f"robots charging: {sum(robot['charging'] for robot in state.robots.values())}/"
+            f"{len(state.robots)}."
+        )
         return
 
     print_task_legend(state)

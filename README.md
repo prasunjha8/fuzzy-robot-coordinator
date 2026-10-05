@@ -63,6 +63,48 @@ The Python prototype computes fuzzy memberships for battery, distance, workload,
 
 To rebuild the embedded demo media from the MuJoCo model, install the documentation dependencies and run `.venv/bin/python scripts/render_demo_gif.py`.
 
+## Quantified results
+
+These are measurements from the seeded project scenario and the checks listed below—not real-robot or hardware performance claims.
+
+### Model and allocation
+
+| Measurement | Result |
+|---|---:|
+| Robots in the seeded warehouse | 3 |
+| Initial tasks | 4 |
+| Fuzzy inputs | 5: battery, distance, workload, payload-load ratio, urgency |
+| Linguistic membership sets | 16 total: 3 + 3 + 3 + 3 + 4 across those inputs |
+| Sugeno rule consequents | 8 |
+| Combined suitability | 65% fuzzy score + 35% weighted mathematical baseline |
+| Candidate pairs in the static 3-robot × 4-task matrix | 12 |
+| Capacity-feasible candidate pairs in that matrix | 10 / 12 |
+| Task-marker capacity per simulation run | 24 |
+
+For the static planner's seeded inputs, the maximum-total assignment is **T1 → R1** (combined suitability 0.8526), **T2 → R2** (0.5729), and **T4 → R3** (0.7084); T3 is left unassigned. For T1, the combined scores are R1 **0.8526**, R2 **0.6661**, and R3 **0.7573**. Scores are normalized to $[0,1]$; a higher score means a better robot-task match, not a probability of success.
+
+At the MuJoCo scenario's initial dispatch, R2 starts at **22% battery**, below the **25%** charging threshold, and is sent to the dock. R1 receives T4 and R3 receives T1; T2 and T3 wait for an available feasible robot. A robot at the dock charges at **12 percentage points per simulated second** until it reaches **85%**, then rejoins the queue.
+
+### Verification results
+
+| Check | Measured result |
+|---|---|
+| Automated unit tests | **17 / 17 passed**: 10 fuzzy-engine/planner checks and 7 simulation-state checks |
+| Maximum-total matching fixture | Exact match assigns both robots: priority **1.65**, versus **1.00** for the tested greedy choice (**65% higher** total priority) |
+| MuJoCo physics smoke test | **500 steps = 5.00 simulated seconds**; **3 / 3** robots had more than 0.05 m net displacement; total tracked path **8.056 m** |
+| Per-robot net displacement in that smoke run | R1 **2.752 m**, R2 **2.311 m**, R3 **2.673 m** |
+| Jobs during that smoke run | **2 / 4 completed**; **1 / 3** robots charging at the end |
+| Browser task-entry check | Submitted one task (3 kg, urgency 90, location 7.2 m × 8.4 m); the dashboard returned **T5** and showed it in the queue |
+
+The automated suite checks membership reference values and score bounds, rejects over-capacity pairs, validates one-to-one assignments and the global matching objective, and exercises task creation, charging, follow-up jobs, and browser-simulation movement. The browser task-entry row above is a separate manual integration check. The MuJoCo smoke test is a short-run movement check, not a statistical benchmark of long-run throughput; task completion and path totals describe one **500-step run**.
+
+Reproduce the automated and physics checks from the repository root:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/mjpython mujoco_sim.py --smoke-test 500
+```
+
 ## Why I built this
 
 This weekend, I wanted to try something new: I used MuJoCo for the first time and applied ideas from my theoretical subjects to a small robotics project. I am exploring how fuzzy logic and mathematical decision-making can help coordinate robots, then using simulation to see those ideas in motion.
@@ -72,3 +114,5 @@ This weekend, I wanted to try something new: I used MuJoCo for the first time an
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
 ```
+
+The latest recorded run passed all **17** tests. See [Quantified results](#quantified-results) for the test scope, measured allocation example, browser task-entry check, and 500-step MuJoCo smoke-test results.
