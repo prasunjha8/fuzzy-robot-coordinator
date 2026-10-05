@@ -116,3 +116,18 @@ This weekend, I wanted to try something new: I used MuJoCo for the first time an
 ```
 
 The latest recorded run passed all **17** tests. See [Quantified results](#quantified-results) for the test scope, measured allocation example, browser task-entry check, and 500-step MuJoCo smoke-test results.
+
+## References and further reading
+
+These works provide background for the techniques used in the prototype; they are references, not claims that this project reproduces the authors' complete methods.
+
+1. L. A. Zadeh, “[Fuzzy Sets](https://doi.org/10.1016/S0019-9958(65)90241-X),” *Information and Control*, 8(3), 338–353, 1965. Foundational paper on fuzzy sets and membership functions.
+2. M. Sugeno, “[Fuzzy identification of systems and its applications to modeling and control](https://doi.org/10.1109/TSMC.1985.6313399),” *IEEE Transactions on Systems, Man, and Cybernetics*, SMC-15(1), 116–132, 1985. Background for Sugeno-style fuzzy models.
+3. H. W. Kuhn, “[The Hungarian Method for the assignment problem](https://doi.org/10.1002/nav.3800020109),” *Naval Research Logistics Quarterly*, 2(1–2), 83–97, 1955. Classic assignment-optimization reference; this small demo uses exhaustive matching rather than Kuhn's algorithm.
+4. E. Todorov, T. Erez, and Y. Tassa, “[MuJoCo: A physics engine for model-based control](https://doi.org/10.1109/IROS.2012.6386109),” *2012 IEEE/RSJ International Conference on Intelligent Robots and Systems*, 5026–5033, 2012.
+
+For an interactive walkthrough connecting these ideas to the implementation, see [MATHEMATICAL_ENGINE.md](./MATHEMATICAL_ENGINE.md).
+
+## License
+
+This project is licensed under the [MIT License](./LICENSE).

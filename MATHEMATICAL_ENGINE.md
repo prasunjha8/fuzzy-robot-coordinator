@@ -17,6 +17,7 @@ This guide connects the equations to the implementation and MuJoCo demo. It is d
 - [6. Robot motion in MuJoCo](#6-robot-motion-in-mujoco)
 - [7. Battery and charging](#7-battery-and-charging)
 - [8. Try it yourself](#8-try-it-yourself)
+- [References and further reading](#references-and-further-reading)
 - [Implementation map](#implementation-map)
 
 ## Watch the MuJoCo simulation
@@ -380,6 +381,15 @@ The embedded GIF and still image are rendered from the actual MuJoCo model and c
 ```
 
 The script writes `docs/assets/mujoco-warehouse-demo.gif` and `docs/assets/mujoco-warehouse-demo.png`.
+
+## References and further reading
+
+These sources give background for the ideas used in this prototype; the project is a small educational implementation, not a reproduction of each work.
+
+1. L. A. Zadeh, “[Fuzzy Sets](https://doi.org/10.1016/S0019-9958(65)90241-X),” *Information and Control*, 8(3), 338–353, 1965. Foundational paper on fuzzy sets and membership functions.
+2. M. Sugeno, “[Fuzzy identification of systems and its applications to modeling and control](https://doi.org/10.1109/TSMC.1985.6313399),” *IEEE Transactions on Systems, Man, and Cybernetics*, SMC-15(1), 116–132, 1985. Background for Sugeno-style fuzzy models.
+3. H. W. Kuhn, “[The Hungarian Method for the assignment problem](https://doi.org/10.1002/nav.3800020109),” *Naval Research Logistics Quarterly*, 2(1–2), 83–97, 1955. Classic assignment-optimization reference; this demo uses exhaustive matching for its small fleet.
+4. E. Todorov, T. Erez, and Y. Tassa, “[MuJoCo: A physics engine for model-based control](https://doi.org/10.1109/IROS.2012.6386109),” *2012 IEEE/RSJ International Conference on Intelligent Robots and Systems*, 5026–5033, 2012.
 
 ## Implementation map
 
